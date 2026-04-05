@@ -3,14 +3,20 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Money {
     pub minor_units: i64,
-    pub currency:    String,
+    pub currency: String,
 }
 impl Money {
-    pub fn from_minor_units(minor_units: i64, currency: impl Into<String>) -> Result<Self, MoneyError> {
+    pub fn from_minor_units(
+        minor_units: i64,
+        currency: impl Into<String>,
+    ) -> Result<Self, MoneyError> {
         if minor_units <= 0 {
             return Err(MoneyError::NonPositive(minor_units));
         }
-        Ok(Self { minor_units, currency: currency.into() })
+        Ok(Self {
+            minor_units,
+            currency: currency.into(),
+        })
     }
 
     pub fn gbp(pence: i64) -> Result<Self, MoneyError> {
@@ -20,10 +26,14 @@ impl Money {
 
 impl std::fmt::Display for Money {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:.2}", self.currency, self.minor_units as f64 / 100.0)
+        write!(
+            f,
+            "{} {:.2}",
+            self.currency,
+            self.minor_units as f64 / 100.0
+        )
     }
 }
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum MoneyError {
