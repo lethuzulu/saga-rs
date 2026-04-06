@@ -1,4 +1,8 @@
-use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
+use axum::{
+    Json,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use shared::saga::SagaError;
 
 #[derive(Debug, thiserror::Error)]
@@ -28,8 +32,8 @@ pub enum OrderError {
 impl IntoResponse for OrderError {
     fn into_response(self) -> Response {
         let (status, message) = match &self {
-            OrderError::NotFound          => (StatusCode::NOT_FOUND, self.to_string()),
-            OrderError::InvalidAmount(_)  => (StatusCode::UNPROCESSABLE_ENTITY, self.to_string()),
+            OrderError::NotFound => (StatusCode::NOT_FOUND, self.to_string()),
+            OrderError::InvalidAmount(_) => (StatusCode::UNPROCESSABLE_ENTITY, self.to_string()),
             _ => {
                 tracing::error!(error = %self, "internal error");
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal error".into())

@@ -3,26 +3,29 @@ use shared::{
     money::Money,
     saga::{SagaData, SagaEvent, SagaState, apply},
 };
-use sqlx::{postgres::PgPoolOptions, PgPool, Postgres, Transaction};
+use sqlx::{PgPool, Postgres, Transaction, postgres::PgPoolOptions};
 use std::future::Future;
 
-use crate::{error::OrderError, types::{Order, OrderStatus}};
-
-
+use crate::{
+    error::OrderError,
+    types::{Order, OrderStatus},
+};
 
 #[derive(Clone)]
 pub struct OrderDb {
     pub pool: PgPool,
 }
 
-
 impl OrderDb {
     pub async fn new(url: &str) -> Result<Self, OrderError> {
-        let pool = PgPoolOptions::new().max_connections(10).connect(url).await?;
+        let pool = PgPoolOptions::new()
+            .max_connections(10)
+            .connect(url)
+            .await?;
         Ok(Self { pool })
     }
 
-    pub async fn with_transaction<'a,F, Fut, T>(&self, f: F) -> Result<T, OrderError>
+    pub async fn with_transaction<'a, F, Fut, T>(&self, f: F) -> Result<T, OrderError>
     where
         F: FnOnce(Transaction<'a, Postgres>) -> Fut,
         Fut: Future<Output = Result<(T, Transaction<'a, Postgres>), OrderError>>,
@@ -38,11 +41,11 @@ impl OrderDb {
     pub async fn create_saga(
         &self,
         customer_id: CustomerId,
-        amount:      Money,
+        amount: Money,
     ) -> Result<(OrderId, SagaId), OrderError> {
         let order_id = OrderId::new();
-        let saga_id  = SagaId::new();
-        let state    = SagaState::Started;
+        let saga_id = SagaId::new();
+        let state = SagaState::Started;
 
         self.with_transaction(|mut tx| async move {
             sqlx::query!(
@@ -81,7 +84,7 @@ impl OrderDb {
     pub async fn advance_saga(
         &self,
         saga_id: SagaId,
-        event:   SagaEvent,
+        event: SagaEvent,
     ) -> Result<SagaState, OrderError> {
         self.with_transaction(|mut tx| async move {
             // load with row-level lock
@@ -134,7 +137,7 @@ impl OrderDb {
     // Used by the orchestrator when it receives CreditReserved reply.
     pub async fn set_reservation_id(
         &self,
-        saga_id:        SagaId,
+        saga_id: SagaId,
         reservation_id: ReservationId,
     ) -> Result<(), OrderError> {
         sqlx::query!(
@@ -163,11 +166,14 @@ impl OrderDb {
         .ok_or(OrderError::NotFound)?;
 
         Ok(SagaData {
-            id:             SagaId::from_uuid(row.id),
-            order_id:       OrderId::from_uuid(row.order_id),
-            customer_id:    CustomerId::from_uuid(row.customer_id),
-            amount:         Money { minor_units: row.amount_minor, currency: row.currency },
-            state:          serde_json::from_value(row.state)?,
+            id: SagaId::from_uuid(row.id),
+            order_id: OrderId::from_uuid(row.order_id),
+            customer_id: CustomerId::from_uuid(row.customer_id),
+            amount: Money {
+                minor_units: row.amount_minor,
+                currency: row.currency,
+            },
+            state: serde_json::from_value(row.state)?,
             reservation_id: row.reservation_id.map(ReservationId::from_uuid),
         })
     }
@@ -188,11 +194,14 @@ impl OrderDb {
         rows.into_iter()
             .map(|row| {
                 Ok(SagaData {
-                    id:             SagaId::from_uuid(row.id),
-                    order_id:       OrderId::from_uuid(row.order_id),
-                    customer_id:    CustomerId::from_uuid(row.customer_id),
-                    amount:         Money { minor_units: row.amount_minor, currency: row.currency },
-                    state:          serde_json::from_value(row.state)?,
+                    id: SagaId::from_uuid(row.id),
+                    order_id: OrderId::from_uuid(row.order_id),
+                    customer_id: CustomerId::from_uuid(row.customer_id),
+                    amount: Money {
+                        minor_units: row.amount_minor,
+                        currency: row.currency,
+                    },
+                    state: serde_json::from_value(row.state)?,
                     reservation_id: row.reservation_id.map(ReservationId::from_uuid),
                 })
             })
@@ -203,7 +212,7 @@ impl OrderDb {
     pub async fn update_order_status(
         &self,
         order_id: OrderId,
-        status:   OrderStatus,
+        status: OrderStatus,
     ) -> Result<(), OrderError> {
         sqlx::query!(
             "UPDATE orders SET status = $1, updated_at = now() WHERE id = $2",
@@ -215,7 +224,10 @@ impl OrderDb {
         Ok(())
     }
 
-    pub async fn get_order(&self, order_id: OrderId) -> Result<Option<(Order, SagaState)>, OrderError> {
+    pub async fn get_order(
+        &self,
+        order_id: OrderId,
+    ) -> Result<Option<(Order, SagaState)>, OrderError> {
         let row = sqlx::query!(
             r#"
             SELECT o.id, o.customer_id, o.amount_minor, o.currency,
@@ -232,11 +244,14 @@ impl OrderDb {
         row.map(|r| {
             Ok((
                 Order {
-                    id:          OrderId::from_uuid(r.id),
+                    id: OrderId::from_uuid(r.id),
                     customer_id: CustomerId::from_uuid(r.customer_id),
-                    amount:      Money { minor_units: r.amount_minor, currency: r.currency },
-                    status:      OrderStatus::try_from(r.status.as_str())?,
-                    created_at:  r.created_at,
+                    amount: Money {
+                        minor_units: r.amount_minor,
+                        currency: r.currency,
+                    },
+                    status: OrderStatus::try_from(r.status.as_str())?,
+                    created_at: r.created_at,
                 },
                 serde_json::from_value::<SagaState>(r.state)?,
             ))

@@ -211,15 +211,19 @@ pub enum SagaError {
     Serialization(#[from] serde_json::Error),
 }
 
+// Kafka topics constants
+pub mod topics {
+    pub const COMMANDS: &str = "orders.commands";
+    pub const REPLIES: &str = "orders.replies";
+}
 
-
-
+/// Unit Tests
 #[cfg(test)]
 mod tests {
     use crate::{
         ids::{CustomerId, OrderId, ReservationId, SagaId},
         money::Money,
-        saga::{apply, SagaError, SagaEvent, SagaState},
+        saga::{SagaError, SagaEvent, SagaState, apply},
     };
 
     // Valid transitions
